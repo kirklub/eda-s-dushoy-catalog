@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#18232f"><title>Еда с душой — меню</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{--bg:#101923;--panel:#1c2b3a;--muted:#a9b7c6;--accent:#ef765e;--text:#fff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px system-ui,-apple-system,sans-serif;padding-bottom:110px}
+header{position:sticky;top:0;z-index:5;background:#18232f;padding:14px 16px calc(12px + env(safe-area-inset-top));box-shadow:0 2px 12px #0003}
+h1{font-size:20px;margin:0 0 4px}.sub{color:var(--muted);font-size:13px}
+.tabs{display:flex;gap:8px;overflow:auto;padding:12px 12px 4px;scrollbar-width:none}.tab{border:0;border-radius:20px;padding:9px 14px;background:var(--panel);color:#fff;white-space:nowrap}.tab.active{background:var(--accent);font-weight:700}
+main{padding:10px 12px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.card{background:var(--panel);border-radius:16px;overflow:hidden;min-width:0}.photo{width:100%;aspect-ratio:1.18;object-fit:cover;background:#263646;display:block}
+.info{padding:10px}.name{font-weight:650;line-height:1.25;min-height:40px}.price{color:#d7e0e9;font-size:14px;margin:7px 0 10px}
+.actions{display:flex;align-items:center;justify-content:space-between;gap:6px}.qty{display:flex;align-items:center;gap:8px}.qty button,.add{border:0;border-radius:10px;background:#30465a;color:#fff;padding:8px 11px;font-size:16px}.add{background:var(--accent);font-weight:700;flex:1;font-size:14px}
+.qty span{min-width:16px;text-align:center}.note{font-size:12px;color:var(--muted);margin-top:7px}
+.bottom{position:fixed;z-index:10;bottom:0;left:0;right:0;background:#18232f;padding:10px 14px calc(10px + env(safe-area-inset-bottom));box-shadow:0 -5px 18px #0004}
+.cartbar{display:flex;justify-content:space-between;align-items:center;gap:10px}.checkout{background:var(--accent);color:#fff;border:0;border-radius:13px;padding:13px 18px;font-weight:750;font-size:15px}.total{font-weight:700}.empty{grid-column:1/-1;color:var(--muted);text-align:center;padding:30px 10px}
+@media(min-width:650px){main{max-width:850px;margin:auto}.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+</style></head>
+<body>
+<header><h1>Еда с душой ❤️</h1><div class="sub">Домашняя еда с любовью</div></header>
+<nav class="tabs" id="tabs"></nav><main><section class="grid" id="items"></section></main>
+<div class="bottom"><div class="cartbar"><div><div class="total" id="total">Корзина пуста</div><div class="sub" id="count">Выберите блюда</div></div><button class="checkout" id="send">Перейти к заказу</button></div></div>
+<script>
+const tg=window.Telegram?.WebApp; tg?.ready(); tg?.expand();
+const MENU={"Супы": [{"name": "Борщ (говядина)", "price": 1000, "unit": "л"}, {"name": "Борщ (курица)", "price": 950, "unit": "л"}, {"name": "Борщ (без мяса)", "price": 800, "unit": "л"}, {"name": "Щи со свежей капустой", "price": 950, "unit": "л"}, {"name": "Гороховый", "price": 800, "unit": "л"}, {"name": "Солянка", "price": 1100, "unit": "л"}, {"name": "Рассольник", "price": 950, "unit": "л"}, {"name": "Куриный", "price": 850, "unit": "л"}, {"name": "Уха (по запросу)", "price": null, "unit": "л"}, {"name": "Окрошка (по запросу)", "price": null, "unit": "л"}, {"name": "Крем-суп (по запросу)", "price": null, "unit": "л"}], "Горячее": [{"name": "Котлеты (говядина)", "price": 1100, "unit": "кг"}, {"name": "Котлеты (свинина)", "price": 950, "unit": "кг"}, {"name": "Котлеты (свинина + говядина)", "price": 1000, "unit": "кг"}, {"name": "Котлеты куриные (фарш/рубленные)", "price": 900, "unit": "кг"}, {"name": "Котлеты куриные ПП", "price": 950, "unit": "кг"}, {"name": "Котлеты рыбные", "price": 1000, "unit": "кг"}, {"name": "Фрикадельки в соусе (курица)", "price": 800, "unit": "кг"}, {"name": "Фрикадельки в соусе (свинина)", "price": 900, "unit": "кг"}, {"name": "Фрикадельки в соусе (говядина)", "price": 1000, "unit": "кг"}, {"name": "Фрикадельки в соусе (с+г)", "price": 950, "unit": "кг"}, {"name": "Шницель (говядина) — дух./жар.", "price": "1000/1100", "unit": "кг"}, {"name": "Шницель (свинина) — дух./жар.", "price": "950/1000", "unit": "кг"}, {"name": "Шницель (курица, грудка) — дух./жар.", "price": "800/850", "unit": "кг"}, {"name": "Шницель (курица, бёдра) — дух./жар.", "price": "750/800", "unit": "кг"}, {"name": "Тефтели с рисом — варианты по прайсу", "price": "1000/900/950/800", "unit": "кг", "note": "Требуется уточнить соответствие каждого варианта цене."}, {"name": "Перец фаршированный (с+г)", "price": 950, "unit": "кг"}, {"name": "Голубцы", "price": 950, "unit": "кг"}, {"name": "Долма", "price": 1000, "unit": "кг"}], "Гарниры": [{"name": "Гречка", "price": 150, "unit": "кг"}, {"name": "Рис", "price": 150, "unit": "кг"}, {"name": "Булгур", "price": 150, "unit": "кг"}, {"name": "Перловка", "price": 150, "unit": "кг"}, {"name": "Горошница", "price": 200, "unit": "кг"}, {"name": "Нут", "price": 200, "unit": "кг"}, {"name": "Маш", "price": 200, "unit": "кг"}, {"name": "Киноа", "price": 200, "unit": "кг"}, {"name": "Рис с овощами", "price": 250, "unit": "кг"}, {"name": "Макароны/спагетти", "price": 150, "unit": "кг"}, {"name": "Картофель отварной", "price": 150, "unit": "кг"}, {"name": "Картофель по-деревенски", "price": 200, "unit": "кг"}, {"name": "Картофельное пюре", "price": 250, "unit": "кг"}, {"name": "Капуста тушёная", "price": 250, "unit": "кг"}, {"name": "Овощная смесь", "price": 250, "unit": "кг"}], "Десерты и выпечка": [{"name": "Оладьи/панкейки", "price": 450, "unit": "кг"}, {"name": "Мягкие вафли", "price": 550, "unit": "кг"}, {"name": "Блины классические", "price": 650, "unit": "кг"}, {"name": "Шарлотка", "price": 600, "unit": "кг"}, {"name": "Манник", "price": 700, "unit": "кг"}, {"name": "Пирожное «Картошка»", "price": 750, "unit": "кг"}, {"name": "Сметанник (песочный)", "price": 900, "unit": "кг"}, {"name": "Кексы творожные", "price": 700, "unit": "кг"}, {"name": "Ватрушки", "price": 950, "unit": "кг"}, {"name": "Блины фаршированные", "price": null, "unit": "по запросу"}, {"name": "Медовик", "price": 1800, "unit": "кг"}, {"name": "Наполеон", "price": 1800, "unit": "кг"}, {"name": "Блинный торт (с творожно-сметанным кремом)", "price": 900, "unit": "кг"}], "Полуфабрикаты": [{"name": "Котлеты (говядина)", "price": 850, "unit": "кг"}, {"name": "Котлеты (свинина)", "price": 700, "unit": "кг"}, {"name": "Котлеты (свинина + говядина)", "price": 750, "unit": "кг"}, {"name": "Котлеты куриные (фарш/рубленные)", "price": 650, "unit": "кг"}, {"name": "Котлеты куриные ПП", "price": 700, "unit": "кг"}, {"name": "Котлеты рыбные", "price": 750, "unit": "кг"}, {"name": "Фрикадельки (курица)", "price": 550, "unit": "кг"}, {"name": "Фрикадельки (свинина)", "price": 650, "unit": "кг"}, {"name": "Фрикадельки (говядина)", "price": 750, "unit": "кг"}, {"name": "Фрикадельки (свинина + говядина)", "price": 700, "unit": "кг"}, {"name": "Шницель (говядина)", "price": 800, "unit": "кг"}, {"name": "Шницель (свинина)", "price": 700, "unit": "кг"}, {"name": "Шницель (курица, грудка)", "price": 550, "unit": "кг"}, {"name": "Шницель (курица, бёдра)", "price": 550, "unit": "кг"}, {"name": "Тефтели с рисом — варианты по прайсу", "price": "700/600/550/500", "unit": "кг", "note": "Требуется уточнить соответствие каждого варианта цене."}, {"name": "Перец фаршированный (с+г)", "price": 550, "unit": "кг"}, {"name": "Голубцы", "price": 550, "unit": "кг"}, {"name": "Долма", "price": 600, "unit": "кг"}], "По индивидуальному заказу": [{"name": "ПП-блюда и индивидуальное меню", "price": null, "unit": "по запросу", "note": "Состав и количество согласуются заранее."}]};
+const PHOTOS={"Горячее": {"Голубцы": "photos/golubtsy.jpg", "Перец фаршированный (с+г)": "photos/farshirovannye_percy.jpg", "Тефтели с рисом — варианты по прайсу": "photos/tefteli_s_risom.jpg"}, "Десерты и выпечка": {"Оладьи/панкейки": "photos/olady.jpg", "Медовик": "photos/medovik.jpg", "Наполеон": "photos/napoleon.jpg"}};
+const cart={}; let category=Object.keys(MENU)[0];
+const tabs=document.getElementById('tabs'), items=document.getElementById('items');
+const money=n=>new Intl.NumberFormat('ru-RU').format(n)+' ₽';
+function priceText(p,u){if(typeof p==='number')return money(p)+' / '+u;if(p)return p+' ₽ / '+u;return 'Цена по запросу'}
+function renderTabs(){tabs.innerHTML='';Object.keys(MENU).forEach(c=>{let b=document.createElement('button');b.className='tab'+(c===category?' active':'');b.textContent=c;b.onclick=()=>{category=c;render()};tabs.append(b)})}
+function renderItems(){items.innerHTML='';MENU[category].forEach((it,i)=>{
+ const key=category+'|'+i, q=cart[key]||0, card=document.createElement('article');card.className='card';
+ const img=document.createElement('img');img.className='photo';img.alt=it.name;img.src=PHOTOS[category]?.[it.name]||'';img.onerror=()=>{img.style.display='none'};
+ card.append(img);const info=document.createElement('div');info.className='info';
+ const name=document.createElement('div');name.className='name';name.textContent=it.name;info.append(name);
+ const price=document.createElement('div');price.className='price';price.textContent=priceText(it.price,it.unit);info.append(price);
+ const actions=document.createElement('div');actions.className='actions';
+ if(typeof it.price==='number'){const qty=document.createElement('div');qty.className='qty';const minus=document.createElement('button');minus.textContent='−';minus.onclick=()=>change(key,-1);const num=document.createElement('span');num.textContent=q;const plus=document.createElement('button');plus.textContent='+';plus.onclick=()=>change(key,1);qty.append(minus,num,plus);actions.append(qty)}
+ else {const note=document.createElement('div');note.className='note';note.textContent='Уточняется индивидуально';actions.append(note)}
+ info.append(actions);card.append(info);items.append(card)
+})}
+function change(key,d){cart[key]=Math.max(0,(cart[key]||0)+d);if(!cart[key])delete cart[key];render()}
+function renderCart(){let total=0,count=0;Object.entries(cart).forEach(([k,q])=>{const [c,i]=k.split('|');const p=MENU[c][+i].price;if(typeof p==='number')total+=p*q;count+=q});document.getElementById('total').textContent=count?money(total):'Корзина пуста';document.getElementById('count').textContent=count?count+' поз. в корзине':'Выберите блюда'}
+function render(){renderTabs();renderItems();renderCart()}
+document.getElementById('send').onclick=()=>{const selected=Object.entries(cart).filter(([,q])=>q>0);if(!selected.length){alert('Сначала добавьте блюда в корзину');return}
+const data={type:'catalog_order',items:selected.map(([key,qty])=>({key,qty}))};
+if(tg){tg.sendData(JSON.stringify(data));}else{alert('Откройте каталог через Telegram, чтобы отправить заказ боту.')}
+};
+render();
+</script></body></html>
