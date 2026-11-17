@@ -18,6 +18,15 @@ main{padding:10px 12px}.grid{display:grid;grid-template-columns:repeat(2,minmax(
 .bottom{position:fixed;z-index:10;bottom:0;left:0;right:0;background:#18232f;padding:10px 14px calc(10px + env(safe-area-inset-bottom));box-shadow:0 -5px 18px #0004}
 .cartbar{display:flex;justify-content:space-between;align-items:center;gap:10px}.checkout{background:var(--accent);color:#fff;border:0;border-radius:13px;padding:13px 18px;font-weight:750;font-size:15px}.total{font-weight:700}.empty{grid-column:1/-1;color:var(--muted);text-align:center;padding:30px 10px}
 @media(min-width:650px){main{max-width:850px;margin:auto}.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+.overlay{display:none;position:fixed;inset:0;z-index:30;background:#0009;align-items:flex-end}
+.overlay.open{display:flex}.cartSheet{background:#1c2b3a;border-radius:22px 22px 0 0;width:100%;max-height:88vh;overflow:auto;padding:18px 16px calc(18px + env(safe-area-inset-bottom));box-shadow:0 -8px 28px #0006}
+.sheetHead{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}.sheetHead h2{margin:0;font-size:20px}.close{border:0;background:#30465a;color:#fff;border-radius:10px;font-size:25px;width:38px;height:38px}
+.cartLine{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 0;border-bottom:1px solid #ffffff18}.cartLineName{font-weight:600;line-height:1.3}.cartLineMeta{color:var(--muted);font-size:13px;margin-top:4px}.cartLineControls{display:flex;align-items:center;gap:8px;white-space:nowrap}.cartLineControls button{border:0;border-radius:9px;background:#30465a;color:#fff;padding:7px 11px;font-size:17px}
+.cartSummary{padding:14px 0;line-height:1.7}.remaining{color:#ffd08a}.ready{color:#9de0b0}.sheetActions{display:flex;gap:10px}.sheetActions button{flex:1}.clearCart{border:1px solid #52677b;background:transparent;color:#fff;border-radius:13px;padding:13px;font-weight:700}
+.checkoutForm{display:grid;gap:12px}.checkoutForm label{display:grid;gap:6px;font-size:14px;color:#dce5ed}.checkoutForm input,.checkoutForm select,.checkoutForm textarea{width:100%;border:1px solid #52677b;border-radius:10px;background:#101923;color:#fff;padding:12px;font:inherit}.checkoutForm textarea{resize:vertical}.formHint{font-size:12px;color:var(--muted);line-height:1.5}
+@media(min-width:650px){.overlay{align-items:center;justify-content:center}.cartSheet{max-width:520px;border-radius:22px}}
+
 </style></head>
 <body>
 <header><h1>Еда с душой ❤️</h1><div class="sub">Домашняя еда с любовью</div></header>
@@ -46,9 +55,68 @@ function renderItems(){items.innerHTML='';MENU[category].forEach((it,i)=>{
 function change(key,d){cart[key]=Math.max(0,(cart[key]||0)+d);if(!cart[key])delete cart[key];render()}
 function renderCart(){let total=0,count=0;Object.entries(cart).forEach(([k,q])=>{const [c,i]=k.split('|');const p=MENU[c][+i].price;if(typeof p==='number')total+=p*q;count+=q});document.getElementById('total').textContent=count?money(total):'Корзина пуста';document.getElementById('count').textContent=count?count+' поз. в корзине':'Выберите блюда'}
 function render(){renderTabs();renderItems();renderCart()}
-document.getElementById('send').onclick=()=>{const selected=Object.entries(cart).filter(([,q])=>q>0);if(!selected.length){alert('Сначала добавьте блюда в корзину');return}
-const data={type:'catalog_order',items:selected.map(([key,qty])=>({key,qty}))};
-if(tg){tg.sendData(JSON.stringify(data));}else{alert('Откройте каталог через Telegram, чтобы отправить заказ боту.')}
-};
+
+const minQty=it=>it.unit==='л'?2:1;
+function totals(){let total=0,count=0;Object.entries(cart).forEach(([k,q])=>{const [c,i]=k.split('|');const p=MENU[c][+i].price;if(typeof p==='number')total+=p*q;count+=q});return {total,count}}
+function renderCartSheet(){
+ const box=document.getElementById('cartLines'),summary=document.getElementById('cartSummary');box.innerHTML='';
+ const entries=Object.entries(cart).filter(([,q])=>q>0);
+ if(!entries.length){box.innerHTML='<div class="empty">Корзина пока пуста. Добавьте блюда из каталога.</div>';summary.innerHTML='';document.getElementById('confirmSend').disabled=true;return}
+ document.getElementById('confirmSend').disabled=false;
+ entries.forEach(([key,q])=>{const [cat,index]=key.split('|'),it=MENU[cat][Number(index)],line=document.createElement('div');line.className='cartLine';
+ const left=document.createElement('div'),nm=document.createElement('div'),meta=document.createElement('div');nm.className='cartLineName';nm.textContent=it.name;meta.className='cartLineMeta';meta.textContent=money(it.price)+' / '+it.unit+' · '+money(it.price*q);left.append(nm,meta);
+ const controls=document.createElement('div');controls.className='cartLineControls';const minus=document.createElement('button');minus.textContent='−';minus.onclick=()=>{change(key,-1);renderCartSheet()};const qty=document.createElement('b');qty.textContent=q+' '+it.unit;const plus=document.createElement('button');plus.textContent='+';plus.onclick=()=>{change(key,1);renderCartSheet()};controls.append(minus,qty,plus);line.append(left,controls);box.append(line)});
+ const {total}=totals(),remaining=Math.max(0,3000-total),errors=entries.map(([key,q])=>{const [c,i]=key.split('|'),it=MENU[c][+i];return q<minQty(it)?it.name+': минимум '+minQty(it)+' '+it.unit:null}).filter(Boolean);
+ summary.innerHTML='<b>Итого: '+money(total)+'</b><br>'+(remaining?'<span class="remaining">До минимального заказа осталось '+money(remaining)+'</span>':'<span class="ready">Минимальная сумма заказа набрана</span>')+(errors.length?'<br><span class="remaining">'+errors.join('<br>')+'</span>':'');
+}
+function openCart(){renderCartSheet();document.getElementById('cartOverlay').classList.add('open');document.getElementById('cartOverlay').setAttribute('aria-hidden','false')}
+function closeCart(){document.getElementById('cartOverlay').classList.remove('open');document.getElementById('cartOverlay').setAttribute('aria-hidden','true')}
+function showCheckout(){
+ const selected=Object.entries(cart).filter(([,q])=>q>0);if(!selected.length){alert('Сначала добавьте блюда в корзину');return}
+ const invalid=selected.map(([key,qty])=>{const [cat,index]=key.split('|'),it=MENU[cat][+index];return qty<minQty(it)?it.name+': минимум '+minQty(it)+' '+it.unit:null}).filter(Boolean);
+ if(invalid.length){alert('Проверьте минимальное количество:\n'+invalid.join('\n'));return}
+ const {total}=totals();if(total<3000){alert('Минимальный заказ — 3 000 ₽. Добавьте ещё на '+money(3000-total)+'.');return}
+ closeCart();document.getElementById('checkoutOverlay').classList.add('open');document.getElementById('checkoutOverlay').setAttribute('aria-hidden','false');
+ document.getElementById('checkoutSummary').innerHTML='<b>Ваш заказ: '+money(total)+'</b><br>Позиций: '+selected.length;
+ const date=document.getElementById('orderDate'),now=new Date(),today=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,10);date.min=today;if(!date.value){const tomorrow=new Date(now.getTime()+86400000-now.getTimezoneOffset()*60000).toISOString().slice(0,10);date.value=tomorrow}updatePricePreview();
+}
+function updatePricePreview(){const total=totals().total,date=document.getElementById('orderDate').value,now=new Date(),today=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,10),urgent=date===today,final=urgent?Math.round(total*1.25):total,deposit=urgent?final:Math.ceil(final*.5);document.getElementById('pricePreview').innerHTML='<b>Итого: '+money(final)+'</b><br>'+(urgent?'<span class="remaining">Срочный заказ: +25%</span><br>':'')+'Предоплата: <b>'+money(deposit)+'</b> ('+(urgent?'100%':'50%')+')'}
+function sendCart(e){e.preventDefault();const form=document.getElementById('checkoutForm');if(!form.reportValidity())return;
+ const selected=Object.entries(cart).filter(([,q])=>q>0),{total}=totals(),fd=new FormData(form),date=String(fd.get('date')),now=new Date(),today=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,10);
+ if(date<today){alert('Нельзя выбрать прошедшую дату.');return}
+ const method=String(fd.get('method')),address=method==='Самовывоз'?'Самовывоз: ул. Белгородская, 18':String(fd.get('address')||'').trim();if(method==='Доставка'&&!address){alert('Укажите адрес доставки.');return}
+ const data={type:'catalog_order',items:selected.map(([key,qty])=>({key,qty})),customer:String(fd.get('customer')).trim(),phone:String(fd.get('phone')).trim(),method,address,date,time:String(fd.get('time')),payment:String(fd.get('payment')),comment:String(fd.get('comment')||'Нет').trim()||'Нет'};
+ if(!data.customer||!data.phone){alert('Заполните имя и телефон.');return}
+ if(tg){document.getElementById('submitOrder').disabled=true;tg.sendData(JSON.stringify(data))}else{alert('Откройте каталог через Telegram, чтобы отправить заказ боту.')}
+}
+document.getElementById('send').onclick=openCart;document.getElementById('closeCart').onclick=closeCart;
+document.getElementById('cartOverlay').onclick=e=>{if(e.target.id==='cartOverlay')closeCart()};
+document.getElementById('clearCart').onclick=()=>{Object.keys(cart).forEach(k=>delete cart[k]);render();renderCartSheet()};
+document.getElementById('confirmSend').onclick=showCheckout;
+document.getElementById('closeCheckout').onclick=()=>{document.getElementById('checkoutOverlay').classList.remove('open');document.getElementById('checkoutOverlay').setAttribute('aria-hidden','true');openCart()};
+document.getElementById('method').onchange=()=>{const pickup=document.getElementById('method').value==='Самовывоз';document.getElementById('addressWrap').style.display=pickup?'none':'grid';document.getElementById('address').required=!pickup};
+document.getElementById('orderDate').onchange=updatePricePreview;document.getElementById('checkoutForm').onsubmit=sendCart;
 render();
-</script></body></html>
+</script>
+<div class="overlay" id="cartOverlay" aria-hidden="true"><section class="cartSheet" role="dialog" aria-modal="true" aria-labelledby="cartTitle">
+<div class="sheetHead"><h2 id="cartTitle">Ваша корзина</h2><button class="close" id="closeCart" aria-label="Закрыть">×</button></div>
+<div id="cartLines"></div><div class="cartSummary" id="cartSummary"></div>
+<div class="sheetActions"><button class="clearCart" id="clearCart">Очистить</button><button class="checkout" id="confirmSend">Перейти к оформлению</button></div>
+</section></div>
+<div class="overlay" id="checkoutOverlay" aria-hidden="true"><section class="cartSheet" role="dialog" aria-modal="true" aria-labelledby="checkoutTitle">
+<div class="sheetHead"><h2 id="checkoutTitle">Оформление заказа</h2><button class="close" id="closeCheckout" aria-label="Назад">×</button></div>
+<div id="checkoutSummary" class="cartSummary"></div>
+<form id="checkoutForm" class="checkoutForm">
+<label>Ваше имя<input name="customer" autocomplete="name" required maxlength="80" placeholder="Как к вам обращаться"></label>
+<label>Телефон<input name="phone" type="tel" autocomplete="tel" required maxlength="30" placeholder="+7 900 000-00-00"></label>
+<label>Как получите заказ?<select name="method" id="method" required><option value="Доставка">Доставка</option><option value="Самовывоз">Самовывоз</option></select></label>
+<label id="addressWrap">Адрес доставки<input name="address" id="address" maxlength="250" placeholder="Улица, дом, квартира"></label>
+<label>Дата получения<input name="date" id="orderDate" type="date" required></label>
+<label>Желаемое время<input name="time" type="time" required></label>
+<label>Способ оплаты<select name="payment" required><option value="Перевод">Перевод</option><option value="Наличные">Наличные</option></select></label>
+<label>Комментарий<textarea name="comment" rows="3" maxlength="500" placeholder="Пожелания к заказу (необязательно)"></textarea></label>
+<div id="pricePreview" class="cartSummary"></div>
+<button class="checkout" id="submitOrder" type="submit">Отправить заказ боту</button>
+<div class="formHint">После отправки бот пришлёт подтверждение и номер заказа. Обычный заказ: предоплата 50%. Заказ на сегодня: доплата 25% и предоплата 100%.</div>
+</form></section></div>
+</body></html>
